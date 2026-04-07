@@ -1,0 +1,7 @@
+chat_model_provider: ollama # ollama or aliyun
+chat_model_name: qwen2.5:7b
+
+embedding_model_provider: ollama # ollama or aliyun
+embedding_model_name: qwen3-embedding:latest
+
+ollama_base_url: http://localhost:11434
