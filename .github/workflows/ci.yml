@@ -1,0 +1,69 @@
+# GitHub Actions CI/CD Pipeline
+# 用于智扫通智能客服项目的自动化构建、测试与验证
+
+name: Smart Sweeper CI Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 步骤 1：检出代码
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 步骤 2：设置 Python 环境
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      # 步骤 3：安装 Python 依赖
+      - name: Install Dependencies
+        run: |
+          echo "Installing Python dependencies..."
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flake8
+          echo "Dependencies installed successfully."
+
+      # 步骤 4：代码质量检查
+      - name: Code Quality (Linting)
+        run: |
+          echo "Running flake8..."
+          flake8 agent/ api/ utils/ rag/ model/ --max-line-length=120 --ignore=E203,W503
+          echo "Linting passed."
+
+      # 步骤 5：MCP 工具注册验证
+      - name: Validate MCP Tools
+        run: |
+          echo "Validating MCP Server tools..."
+          python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from agent.tools.mcp_server import mcp
+          tools = mcp._tool_manager.list_tools()
+          print(f'Found {len(tools)} MCP tools:')
+          for tool in tools:
+              print(f'  - {tool.name}')
+          assert len(tools) >= 6, 'Expected at least 6 tools, found ' + str(len(tools))
+          print('MCP tools validation passed.')
+          "
+
+      # 步骤 6：关键路径导入测试
+      - name: Smoke Test (Import Checks)
+        run: |
+          echo "Running smoke tests for imports..."
+          python -c "
+          import agent.react_agent
+          import api.app
+          import rag.rag_service
+          print('All critical imports successful.')
+          "

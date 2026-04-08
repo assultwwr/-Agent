@@ -19,3 +19,7 @@ pymilvus>=2.4.0
 
 # Data Validation
 pydantic>=2.0.0
+
+# MCP Protocol
+mcp>=1.0.0
+langchain-mcp-adapters>=0.1.0
