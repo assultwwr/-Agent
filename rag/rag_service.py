@@ -1,6 +1,3 @@
-"""
-总结服务类：用户提问，搜索参考资料，将提问和参考资料提交给模型，让模型总结回复
-"""
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from rag.vector_store import VectorStoreService
@@ -35,6 +32,10 @@ class RagSummarizeService(object):
     def rag_summarize(self, query: str) -> str:
 
         context_docs = self.retriever_docs(query)
+
+        # 如果检索结果为空，直接返回提示，避免模型产生幻觉
+        if not context_docs:
+            return "知识库中未找到相关资料，无法回答此问题。"
 
         context = ""
         counter = 0

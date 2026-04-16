@@ -1,11 +1,30 @@
+# Milvus 向量数据库配置
+#
+# 注意：连接地址可通过环境变量覆盖
+# 优先级：环境变量 > 此配置文件
+#
+# Collection 名称（向量库表名）
 collection_name: agent
+
+# Milvus 服务地址（建议通过环境变量 MILVUS_URI 配置）
+# 本地开发: http://localhost:19530
+# Docker (Windows/Mac): http://host.docker.internal:19530
+# Docker (Linux): http://<宿主机IP>:19530
 uri: http://localhost:19530
 
-k: 3
+# 检索配置
+k: 3  # 默认返回结果数量
+
+# 知识库文件路径（相对项目根目录）
 data_path: data
+
+# MD5 记录文件路径（用于去重和同步）
 md5_hex_store: md5.text
+
+# 支持的知识库文件类型
 allow_knowledge_file_type: ["txt", "pdf", "docx"]
 
-chunk_size: 200
-chunk_overlap: 20
-separators: ["\n\n", "\n", ".", "!", "?", "。", "！", "？", " ", ""]
+# 文本分片配置
+chunk_size: 200      # 每个分片的字符数
+chunk_overlap: 20    # 分片重叠字符数
+separators: ["\n\n", "\n", ".", "!", "?", "。", "！", "？", " ", ""]  # 分隔符优先级
