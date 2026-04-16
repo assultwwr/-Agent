@@ -1,0 +1,166 @@
+version: '3.8'
+
+# 智能问答 Agent - Docker Compose 配置
+# 
+# 使用方法：
+#   docker-compose up -d          # 启动所有服务
+#   docker-compose down           # 停止并删除所有服务
+#   docker-compose logs -f        # 查看所有服务日志
+#   docker-compose restart backend # 重启后端服务
+#
+# 重要提示：
+#   1. 本配置默认使用外部服务（Ollama、MongoDB、Milvus）
+#   2. 如需使用 Docker 管理的数据库，请取消注释对应的服务配置
+#   3. Windows/Mac 使用 host.docker.internal 连接宿主机服务
+#   4. Linux 需将 host.docker.internal 替换为宿主机 IP 地址
+
+services:
+  # MongoDB - 聊天历史记录存储
+  # 
+  # 使用说明：
+  #   - 如果已有本地 MongoDB，请保持注释状态，并在 .env 中配置 MONGODB_URI
+  #   - 如果需要 Docker 管理 MongoDB，请取消注释以下配置
+  #   - 取消注释后，需在 backend 服务的 depends_on 中启用 mongodb
+  # mongodb:
+  #   image: mongo:7.0
+  #   container_name: agent-mongodb
+  #   restart: unless-stopped
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - mongodb_data:/data/db
+  #     - mongodb_config:/data/configdb
+  #   environment:
+  #     - MONGO_INITDB_DATABASE=agent_chat
+  #   networks:
+  #     - agent-network
+  #   healthcheck:
+  #     test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 30s
+
+  # Milvus - 向量数据库
+  #
+  # 使用说明：
+  #   - 如果已有本地 Milvus，请保持注释状态，并在 .env 中配置 MILVUS_URI
+  #   - 如果需要 Docker 管理 Milvus，请取消注释以下配置
+  #   - 取消注释后，需在 backend 服务的 depends_on 中启用 milvus
+  # milvus:
+  #   image: milvusdb/milvus:v2.4.0
+  #   container_name: agent-milvus
+  #   restart: unless-stopped
+  #   ports:
+  #     - "19530:19530"  # gRPC 端口
+  #     - "9091:9091"    # HTTP 端口
+  #   volumes:
+  #     - milvus_data:/var/lib/milvus
+  #   environment:
+  #     - ETCD_USE_EMBED=true
+  #     - ETCD_CONFIG_PATH=/milvus/configs/embedEtcd.yaml
+  #     - COMMON_STORAGETYPE=local
+  #   command: ["milvus", "run", "standalone"]
+  #   networks:
+  #     - agent-network
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 60s
+
+  # 后端服务 - FastAPI
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: agent-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # 挂载数据目录（知识库文件）
+      - ./data:/app/data
+      # 挂载日志目录
+      - ./logs:/app/logs
+      # 挂载配置文件（可在宿主机修改）
+      - ./config:/app/config
+      - ./prompts:/app/prompts
+      # 挂载 .env 文件
+      - ./.env:/app/.env
+    environment:
+      # 数据库连接配置
+      # 重要：不同操作系统的配置方式不同
+      #   - Windows/Mac: 使用 host.docker.internal 连接宿主机
+      #   - Linux: 需将 host.docker.internal 替换为实际宿主机 IP
+      #   - 如果使用 Docker 管理的数据库，使用服务名 (mongodb, milvus)
+      - MONGODB_URI=${MONGODB_URI:-mongodb://host.docker.internal:27017}
+      - MILVUS_URI=${MILVUS_URI:-http://host.docker.internal:19530}
+      
+      # 模型服务配置
+      #   - Ollama 本地服务: http://host.docker.internal:11434 (Windows/Mac)
+      #   - 阿里云 API: 在 .env 中设置 CHAT_MODEL_PROVIDER=aliyun
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - CHAT_MODEL_PROVIDER=${CHAT_MODEL_PROVIDER:-ollama}
+      - CHAT_MODEL_NAME=${CHAT_MODEL_NAME:-qwen2.5:7b}
+      - EMBEDDING_MODEL_PROVIDER=${EMBEDDING_MODEL_PROVIDER:-ollama}
+      - EMBEDDING_MODEL_NAME=${EMBEDDING_MODEL_NAME:-qwen3-embedding:latest}
+      
+      # API Keys（从 .env 文件读取）
+      - AMAP_API_KEY=${AMAP_API_KEY}
+    # 依赖配置
+    # 如果使用 Docker 管理的数据库，请取消注释以下内容
+    # depends_on:
+    #   mongodb:
+    #     condition: service_healthy
+    #   milvus:
+    #     condition: service_healthy
+    # 当前使用外部服务，不依赖 Docker 管理的容器
+    depends_on: []
+    networks:
+      - agent-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # 前端服务 - Streamlit
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: agent-frontend
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    environment:
+      # 后端 API 地址（Docker 网络内部使用服务名）
+      - API_BASE_URL=http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - agent-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8501')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+# 数据卷（持久化存储）
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+  milvus_data:
+    driver: local
+
+# 网络配置
+networks:
+  agent-network:
+    driver: bridge

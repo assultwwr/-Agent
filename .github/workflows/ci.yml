@@ -1,7 +1,7 @@
 # GitHub Actions CI/CD Pipeline
-# 用于智扫通智能客服项目的自动化构建、测试与验证
+# 用于智能问答 Agent 项目的自动化构建、测试与验证
 
-name: Smart Sweeper CI Pipeline
+name: Smart QA Agent CI Pipeline
 
 on:
   push:

@@ -8,8 +8,8 @@ from api.routes import chat
 
 # 初始化 FastAPI 应用
 app = FastAPI(
-    title="智扫通机器人智能客服API",
-    description="基于 RAG + ReAct Agent 的智能客服系统",
+    title="智能问答 Agent API",
+    description="基于 RAG + ReAct Agent 的智能问答系统",
     version="1.0.0"
 )
 
@@ -32,7 +32,7 @@ chat.agent_instance = agent_instance
 app.include_router(api_router)
 
 if __name__ == "__main__":
-    logger.info("启动智扫通机器人智能客服API服务...")
+    logger.info("启动智能问答 Agent API 服务...")
     uvicorn.run(
         "api.app:app",  # 使用模块路径
         host="0.0.0.0",

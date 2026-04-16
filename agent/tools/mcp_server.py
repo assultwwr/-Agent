@@ -5,9 +5,12 @@ from utils.path_tool import get_abs_path
 from utils.logger_handler import logger
 import os
 import random
+import requests
+import json
+from datetime import datetime
 
 # 初始化 FastMCP 服务器
-mcp = FastMCP(name="智扫通工具服务", version="1.0.0")
+mcp = FastMCP(name="智能问答工具服务")
 
 # 初始化 RAG 服务
 rag = RagSummarizeService()
@@ -34,7 +37,7 @@ def rag_summarize(query: str) -> str:
 
 @mcp.tool()
 def get_weather(city: str) -> str:
-    """获取指定城市的天气信息。
+    """获取指定城市的实时天气信息。
 
     Args:
         city: 城市名称
@@ -43,17 +46,91 @@ def get_weather(city: str) -> str:
         天气信息字符串
     """
     logger.info(f"[MCP]get_weather called for city: {city}")
-    return f"城市{city}天气为晴天，气温26摄氏度，空气湿度50%，南风1级，AQI21，最近6小时降雨概率极低"
+    
+    api_key = agent_config.get("amap_api_key", "")
+    if not api_key or api_key == "YOUR_AMAP_API_KEY_HERE":
+        logger.warning("[MCP]高德 API Key 未配置，使用 Mock 数据")
+        return f"城市{city}天气为晴天，气温26摄氏度，空气湿度50%，南风1级，AQI21，最近6小时降雨概率极低"
+    
+    try:
+        # 1. 获取城市 adcode
+        geo_url = "https://restapi.amap.com/v3/config/district"
+        geo_params = {
+            "key": api_key,
+            "keywords": city,
+            "subdistrict": "0"
+        }
+        geo_resp = requests.get(geo_url, params=geo_params, timeout=5)
+        geo_data = geo_resp.json()
+        
+        if geo_data.get("status") == "1" and geo_data.get("districts"):
+            adcode = geo_data["districts"][0]["adcode"]
+            
+            # 2. 根据 adcode 获取天气
+            weather_url = "https://restapi.amap.com/v3/weather/weatherInfo"
+            weather_params = {
+                "key": api_key,
+                "city": adcode,
+                "extensions": "base"  # base 为实况天气
+            }
+            weather_resp = requests.get(weather_url, params=weather_params, timeout=5)
+            weather_data = weather_resp.json()
+            
+            if weather_data.get("status") == "1" and weather_data.get("lives"):
+                live = weather_data["lives"][0]
+                result = (
+                    f"城市：{live['province']}{live['city']}\n"
+                    f"天气：{live['weather']}\n"
+                    f"温度：{live['temperature']}℃\n"
+                    f"湿度：{live['humidity']}%\n"
+                    f"风向：{live['winddirection']}风 {live['windpower']}级\n"
+                    f"发布时间：{live['reporttime']}"
+                )
+                logger.info(f"[MCP]成功获取 {city} 天气：{live['weather']}")
+                return result
+    except Exception as e:
+        logger.error(f"[MCP]获取天气失败：{e}")
+    
+    return f"无法获取{city}的天气信息，请稍后重试"
 
 @mcp.tool()
-def get_user_location() -> str:
+def get_user_location(user_ip: str = "") -> str:
     """获取用户所在城市的名称。
+
+    Args:
+        user_ip: (可选) 用户公网 IP。若前端已获取，Agent 应传入此参数以提高精度。
 
     Returns:
         城市名称
     """
-    logger.info("[MCP]get_user_location called")
-    return random.choice(["深圳", "合肥", "杭州"])
+    logger.info(f"[MCP]get_user_location called with ip: {user_ip or 'Auto'}")
+    
+    api_key = agent_config.get("amap_api_key", "")
+    if not api_key or api_key == "YOUR_AMAP_API_KEY_HERE":
+        logger.warning("[MCP]高德 API Key 未配置")
+        return "无法获取当前位置"
+    
+    try:
+        ip_url = "https://restapi.amap.com/v3/ip"
+        ip_params = {
+            "key": api_key,
+            "ip": user_ip  # 传入前端获取的 IP，若为空则高德自动识别
+        }
+        resp = requests.get(ip_url, params=ip_params, timeout=3)
+        data = resp.json()
+        
+        if data.get("status") == "1":
+            city = data.get("city") or data.get("province") or ""
+            if city:
+                city = city.replace("市", "")
+                logger.info(f"[MCP]基于 IP {user_ip or 'Auto'} 定位到：{city}")
+                return city
+        
+        logger.warning(f"[MCP]高德定位失败")
+        return "无法获取当前位置"
+    except Exception as e:
+        logger.error(f"[MCP]获取位置失败：{e}")
+        return "无法获取当前位置"
 
 @mcp.tool()
 def get_user_id() -> str:
@@ -66,6 +143,22 @@ def get_user_id() -> str:
     return random.choice(user_ids)
 
 @mcp.tool()
+def get_current_time() -> str:
+    """获取当前的实时时间信息。
+
+    Returns:
+        当前时间字符串，包含日期、时间、星期
+    """
+    now = datetime.now()
+    weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']
+    result = (
+        f"当前时间：{now.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"星期：{weekdays[now.weekday()]}"
+    )
+    logger.info(f"[MCP]get_current_time called, result: {result}")
+    return result
+
+@mcp.tool()
 def get_current_month() -> str:
     """获取当前月份。
 
@@ -73,7 +166,7 @@ def get_current_month() -> str:
         月份字符串 (格式: YYYY-MM)
     """
     logger.info("[MCP]get_current_month called")
-    return random.choice(month_arr)
+    return datetime.now().strftime('%Y-%m')
 
 def load_external_data():
     """加载外部数据文件"""
@@ -139,5 +232,5 @@ def fill_context_for_report() -> str:
 
 # 启动 MCP 服务器
 if __name__ == "__main__":
-    logger.info("启动智扫通MCP工具服务...")
+    logger.info("启动智能问答 MCP 工具服务...")
     mcp.run()

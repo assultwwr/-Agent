@@ -1,1 +1,10 @@
+# Agent 配置文件
+# 
+# 注意：敏感信息（如 API Key）应通过环境变量配置
+# 优先级：环境变量 > 此配置文件
+#
+# 外部数据文件路径（相对项目根目录）
 external_data_path: data/external/records.csv
+
+# 高德地图 API Key（建议通过环境变量 AMAP_API_KEY 配置）
+# amap_api_key: your_api_key_here

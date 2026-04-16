@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Virtual Environment
+venv/
+.venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# Git
+.git/
+.gitignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Data (数据文件在容器内挂载)
+data/*.pdf
+data/*.txt
+data/*.csv
+
+# Milvus 数据
+milvus_data/
+*.db
+
+# Environment variables
+.env
+.ipynb_checkpoints
+*.ipynb
+
+# Documentation (不需要打包进镜像)
+*.md
+!Dockerfile*
+!docker-compose*
