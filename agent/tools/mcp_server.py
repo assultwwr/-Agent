@@ -189,10 +189,10 @@ def load_external_data():
 
                 user_id = arr[0].replace('"', "")
                 external_data.setdefault(user_id, {})[arr[5].replace('"', "")] = {
-                    "特征": arr[1].replace('"', ""),
-                    "效率": arr[2].replace('"', ""),
-                    "耗材": arr[3].replace('"', ""),
-                    "对比": arr[4].replace('"', ""),
+                    "房屋信息": arr[1].replace('"', ""),
+                    "投诉类型": arr[2].replace('"', ""),
+                    "处理状态": arr[3].replace('"', ""),
+                    "评价等级": arr[4].replace('"', ""),
                 }
         logger.info(f"[MCP]成功加载外部数据: {len(external_data)} 个用户")
     except Exception as e:
@@ -200,14 +200,14 @@ def load_external_data():
 
 @mcp.tool()
 def fetch_external_data(user_id: str, month: str) -> str:
-    """从外部系统中获取指定用户在指定月份的使用记录。
+    """从外部系统中获取指定业主在指定月份的物业反馈记录。
 
     Args:
-        user_id: 用户ID
+        user_id: 业主ID
         month: 月份 (格式: YYYY-MM)
 
     Returns:
-        使用记录数据，未找到返回空字符串
+        反馈记录数据，未找到返回空字符串
     """
     logger.info(f"[MCP]fetch_external_data called for user: {user_id}, month: {month}")
     load_external_data()
